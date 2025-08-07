@@ -68,3 +68,25 @@ export function verifySignature(input: TxInput, txData: string): boolean {
   verify.end();
   return verify.verify(key, Buffer.from(input.signature, "base64"));
 }
+
+// 코인 베이스 트랜잭션은 입력 없이 보상만 있음
+
+export function createCoinbaseTx(address: string, amount: number): Transaction {
+  const input: TxInput = {
+    txId: "0".repeat(64), // 가짜 txId (코인베이스는 이전 입력 없음)
+    outputIndex: -1,
+    signature: "",
+    publicKey: "",
+  };
+
+  const output: TxOutput = {
+    amount,
+    address,
+  };
+
+  return {
+    id: "", // 해시로 나중에 채움
+    inputs: [input],
+    outputs: [output],
+  };
+}
