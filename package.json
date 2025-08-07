@@ -2,7 +2,8 @@
   "name": "blockchain",
   "version": "1.0.0",
   "scripts": {
-    "wallet": "ts-node scripts/wallet-demo.ts"
+    "wallet": "ts-node scripts/wallet-demo.ts",
+    "mine": "npx ts-node scripts/mine.ts"
   },
   "dependencies": {
     "crypto": "^1.0.1",

@@ -1,24 +1,23 @@
 import crypto from "crypto";
+import { Transaction } from "./transaction";
 
 export class Block {
   constructor(
     public index: number,
     public previousHash: string,
     public timestamp: number,
-    public data: any,
+    public transactions: Transaction[],
     public nonce: number = 0
   ) {}
 
   getHash(): string {
-    return crypto
-      .createHash("sha256")
-      .update(
-        this.index +
-          this.previousHash +
-          this.timestamp +
-          JSON.stringify(this.data) +
-          this.nonce
-      )
-      .digest("hex");
+    const data =
+      this.index +
+      this.previousHash +
+      this.timestamp +
+      JSON.stringify(this.transactions) +
+      this.nonce;
+
+    return crypto.createHash("sha256").update(data).digest("hex");
   }
 }
