@@ -2,3 +2,4 @@ fastapi
 uvicorn
 pydantic
 ecdsa
+redis>=5

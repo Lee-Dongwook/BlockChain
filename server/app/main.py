@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 
 # app 디렉토리를 경로에 추가
 sys.path.append(os.path.dirname(__file__))
@@ -22,6 +23,7 @@ from p2p.messages import MESSAGE_TYPE
 
 from utils.network_overview import build_network_overview
 from utils.event_logger import get_event_logs
+from utils.redis_client import r, CHANNEL
 
 from core.block import Block
 from core.blockchain import Blockchain
@@ -30,25 +32,41 @@ from core.contract import SmartContract
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 서버 시작 시
-    async def broadcast_loop():
+    async def overview_loop():
         while True:
             overview = build_network_overview(LOCAL_NODE_URL, peers, blockchain)
             await manager.broadcast({
                 "type": MESSAGE_TYPE["NETWORK_OVERVIEW"],
                 "data": overview
             }) # pyright: ignore[reportArgumentType]
-
-            await manager.broadcast({
-                "type": MESSAGE_TYPE["NETWORK_LOGS"],
-                "data": get_event_logs()
-            }) # pyright: ignore[reportArgumentType]
-
             await asyncio.sleep(5)
-        
-    task = asyncio.create_task(broadcast_loop())
-    yield
 
-    task.cancel()
+    async def redis_event_bridge():
+        """Redis Pub/Sub으로 실시간 이벤트 받아서 WS로 전송"""
+        pubsub = r.pubsub()
+        pubsub.subscribe(CHANNEL)
+        loop = asyncio.get_event_loop()
+
+        while True:
+            msg = await loop.run_in_executor(None, pubsub.get_message, True, 1.0)
+            if msg and msg.get('type') == "message":
+                try:
+                    event = json.loads(msg["data"])
+                    await manager.broadcast({
+                        "type": "EVENT_LOG",
+                        "data": event
+                    }) # pyright: ignore[reportArgumentType]
+
+                except Exception as e:
+                    print('[Error] Redis event bridge:', e)
+        
+    t1 = asyncio.create_task(overview_loop())
+    t2 = asyncio.create_task(redis_event_bridge())
+    try:
+        yield
+    finally:
+        t1.cancel()
+        t2.cancel()
 
 
 app = FastAPI(title="Blockchain API", lifespan=lifespan)
@@ -116,6 +134,11 @@ async def websocket_endpoint(websocket: WebSocket):
             elif msg_type == MESSAGE_TYPE["NETWORK_OVERVIEW"]:
                 data_obj = data.get("data")
                 print(f"[P2P] Live Network Overview: {data_obj['stats']}")
+
+            elif msg_type == MESSAGE_TYPE["EVENT_LOG"]:
+                event = data.get('data')
+                print(f"[LIVE EVENT] {event['type']} -> {event['details']}")
+
                 
 
             await manager.broadcast(data)

@@ -1,0 +1,18 @@
+version: "3.9"
+servies:
+  redis:
+    image: redis:7-alpine
+    container_name: blockchain_redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"] #AOF로 복구성 업그레이드
+    volumes:
+      - ./data/redis:/data
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: blockchain_redisinsight
+    ports:
+      - "5540:5540"
+    depends_on:
+      - redis
