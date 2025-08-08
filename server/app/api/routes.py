@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from core.blockchain import Blockchain
+from core.transaction import Transaction
 
 router = APIRouter()
 blockchain = Blockchain()
@@ -14,6 +15,11 @@ def mine_block(miner_address: str):
     return {"message": "Block mined successfully"}
 
 @router.post('/transactions')
-def create_transaction(tx: dict):
-    blockchain.add_transaction(tx)
+def create_transaction(from_address:str, to_address:str, amount:float, signature:str):
+    tx = Transaction(from_address, to_address, amount)
+    tx.signature = signature
+    if not tx.is_valid():
+        return {'error': "Invalid transaction signature"}
+
+    blockchain.add_transaction(tx.__dict__)
     return {"message": "Transaction added successfully"}
