@@ -12,6 +12,7 @@ import time
 import statistics
 import asyncio
 import json
+import threading
 
 TX_EXPIRATION = 600 # 초 단위 (10분)
 
@@ -23,6 +24,19 @@ class Blockchain:
         self.chain = self.load_chain_from_cache() or [self.create_genesis_block()]
         self.target_block_time = 10 # 목표 블록 생성 시간 (10초)
         self.adjustment_interval = 5 # 난이도 조정 주기 (블록 개수)
+        self._start_tx_cleanup_scheduler() # 트랜잭션 만료 자동 청소 스케줄러
+    
+    def _start_tx_cleanup_scheduler(self):
+        def _cleanup_loop():
+            while True:
+                try:
+                    self._prune_expired_transactions()
+                except Exception as e:
+                    print(f"[WARN] Transaction cleanup failed: {e}")
+                time.sleep(60) # 1분마다 실행
+
+        t = threading.Thread(target=_cleanup_loop, daemon=True)
+        t.start()
 
     def _update_balance_cache(self, address:str, amount_delta:float):
         """주소 잔액을 Redis에서 바로 갱신, 음수 delta는 잔액 차감, 양수 delta는 잔액 증가"""

@@ -17,6 +17,7 @@ from api.stats_routes import stats_router
 from api.multisig_routes import multisig_router
 from api.contract_routes import contract_router, contracts
 from api.network_routes import network_router
+from api.transaction_routes import transaction_router
 
 from p2p.manager import manager
 from p2p.messages import MESSAGE_TYPE
@@ -75,13 +76,14 @@ LOCAL_NODE_URL = "ws://localhost:8000/ws"
 
 # REST API
 app.include_router(router)
-app.include_router(wallet_router, prefix='/wallet')
-app.include_router(p2p_router, prefix='/p2p')
-app.include_router(explorer_router, prefix='/explorer')
-app.include_router(stats_router, prefix='/stats')    
-app.include_router(multisig_router, prefix='/multisig')
-app.include_router(contract_router, prefix='/contract')
-app.include_router(network_router, prefix="/network")
+app.include_router(wallet_router, prefix='/wallet', tags=["Wallet"])
+app.include_router(p2p_router, prefix='/p2p', tags=["P2P"])
+app.include_router(explorer_router, prefix='/explorer', tags=["Explorer"])
+app.include_router(stats_router, prefix='/stats', tags=["Stats"])    
+app.include_router(multisig_router, prefix='/multisig', tags=["Multisig"])
+app.include_router(contract_router, prefix='/contract', tags=["Contract"])
+app.include_router(network_router, prefix="/network", tags=["Network"])
+app.include_router(transaction_router, prefix="/transaction", tags=["Transaction"])
 
 
 
