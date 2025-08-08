@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "wallet": "ts-node scripts/wallet-demo.ts",
-    "mine": "npx ts-node scripts/mine.ts"
+    "mine": "npx ts-node scripts/mine.ts",
+    "mine-balance": "npx ts-node scripts/mine-and-balance.ts"
   },
   "dependencies": {
     "crypto": "^1.0.1",
