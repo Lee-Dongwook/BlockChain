@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { Transaction } from "./transaction";
+import { Transaction } from "./transaction.js";
 
 export class Block {
   constructor(

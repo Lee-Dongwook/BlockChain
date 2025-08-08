@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import { randomBytes } from "crypto";
 
 // 주소 생성 = SHA256 -> RIPEMD160 -> (base58은 나중)
 function getAddress(publicKeyHex: string) {

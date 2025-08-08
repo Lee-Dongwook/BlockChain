@@ -1,17 +1,32 @@
 {
   "name": "blockchain",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "wallet": "ts-node scripts/wallet-demo.ts",
     "mine": "npx ts-node scripts/mine.ts",
-    "mine-balance": "npx ts-node scripts/mine-and-balance.ts"
+    "mine-balance": "npx ts-node scripts/mine-and-balance.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
+    "buffer": "^6.0.3",
     "crypto": "^1.0.1",
+    "crypto-browserify": "^3.12.1",
+    "node": "^22.18.0",
+    "process": "^0.11.10",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "stream-browserify": "^3.0.0",
     "typescript": "^5.9.2"
   },
   "devDependencies": {
     "@types/node": "^24.2.0",
-    "ts-node": "^10.9.2"
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^5.0.0",
+    "ts-node": "^10.9.2",
+    "vite": "^7.1.0"
   }
 }

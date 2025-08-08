@@ -1,7 +1,7 @@
-import { Block } from "./block";
-import { mineBlock } from "./pow";
-import { Transaction, createCoinbaseTx } from "./transaction";
-import { UTXOPool, UTXO } from "./utxo";
+import { Block } from "./block.js";
+import { mineBlock } from "./pow.js";
+import { createCoinbaseTx } from "./transaction.js";
+import { UTXOPool, UTXO } from "./utxo.js";
 
 export class Blockchain {
   public chain: Block[];

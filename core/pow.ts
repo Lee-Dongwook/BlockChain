@@ -1,4 +1,4 @@
-import { Block } from "./block";
+import { Block } from "./block.js";
 
 export function mineBlock(block: Block, difficulty: number): Block {
   const target = "0".repeat(difficulty);
