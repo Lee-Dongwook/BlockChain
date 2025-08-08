@@ -19,7 +19,7 @@ class MultisigWallet:
                 try:
                     pk_bytes = bytes.fromhex(pk_hex)
                     vk = VerifyingKey.from_string(pk_bytes, curve=SECP256k1)
-                    if vk.verify(binascii.unhexlify(sig_hex), message.encode()):
+                    if vk.verify(binascii.unhexlify(sig_hex), bytes.fromhex(message)):
                         unique_signers.add(pk_hex)
                         break
                 except Exception:
