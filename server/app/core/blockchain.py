@@ -1,12 +1,12 @@
 from typing import List
-from .block import Block
+from core.block import Block
 
 class Blockchain:
     def __init__(self):
-        self.chain: List[Block] = [self.create_genesis_block()]
         self.difficulty = 2
         self.pending_transactions: List[dict] = []
         self.mining_reward = 50
+        self.chain: List[Block] = [self.create_genesis_block()]
 
     def create_genesis_block(self) -> Block:
         return Block(0, '0', [], self.difficulty)
