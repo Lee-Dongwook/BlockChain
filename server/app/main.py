@@ -12,6 +12,7 @@ from api.explorer_routes import explorer_router
 from api.stats_routes import stats_router
 from api.multisig_routes import multisig_router
 from api.contract_routes import contract_router, contracts
+from api.network_routes import network_router
 from p2p.manager import manager
 from p2p.messages import MESSAGE_TYPE
 from core.block import Block
@@ -27,6 +28,7 @@ app.include_router(explorer_router, prefix='/explorer')
 app.include_router(stats_router, prefix='/stats')    
 app.include_router(multisig_router, prefix='/multisig')
 app.include_router(contract_router, prefix='/contract')
+app.include_router(network_router, prefix="/network")
 
 # WebSocket
 @app.websocket("/ws")
