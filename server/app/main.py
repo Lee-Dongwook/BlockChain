@@ -12,6 +12,7 @@ from api.explorer_routes import explorer_router
 from api.stats_routes import stats_router
 from p2p.manager import manager
 from p2p.messages import MESSAGE_TYPE
+from core.block import Block
 
 app = FastAPI(title="Blockchain API")
 
@@ -39,8 +40,13 @@ async def websocket_endpoint(websocket: WebSocket):
                  tx = data.get("data")
                  blockchain.pending_transactions.append(tx)
             elif msg_type == MESSAGE_TYPE['BLOCK']:
-                block = data.get('data')
-                blockchain.chain.append(block)
+                block_data = data.get('data')
+                latest_block = blockchain.get_latest_block()
+
+                if block_data['index'] > latest_block.index:
+                    print(f"[P2P] Received new block {block_data['index']} from peer, replacing chain")
+                    blockchain.chain.append(Block(**block_data))
+                
 
             await manager.broadcast(data)
     except:
