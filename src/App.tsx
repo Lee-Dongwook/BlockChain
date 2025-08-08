@@ -1,5 +1,10 @@
 import { useState } from "react";
 import { Blockchain } from "../core/blockchain.js";
+import { Buffer } from "buffer";
+import process from "process";
+
+window.Buffer = Buffer;
+window.process = process;
 
 const chain = new Blockchain();
 const myAddress = "dongwook123";
