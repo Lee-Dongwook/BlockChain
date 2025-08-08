@@ -3,8 +3,12 @@ import { Blockchain } from "../core/blockchain.js";
 import { Buffer } from "buffer";
 import process from "process";
 
-window.Buffer = Buffer;
-window.process = process;
+if (!window.Buffer) {
+  window.Buffer = Buffer;
+}
+if (!window.process) {
+  window.process = process;
+}
 
 const chain = new Blockchain();
 const myAddress = "dongwook123";
@@ -31,7 +35,9 @@ function getAllTransactions(chain: Blockchain) {
 
 export default function App() {
   const [balance, setBalance] = useState<number>(chain.getBalance(myAddress));
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>(
+    getAllTransactions(chain)
+  );
 
   const handleMine = () => {
     chain.minePendingTransactions(myAddress);
