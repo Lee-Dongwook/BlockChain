@@ -1,8 +1,10 @@
 from typing import List
 from core.block import Block
 from api.contract_routes import contracts
+from api.p2p_routes import peers
 from p2p.messages import MESSAGE_TYPE
 from p2p.manager import manager
+from utils.network_status import get_network_status
 import time
 import statistics
 import asyncio
@@ -54,11 +56,15 @@ class Blockchain:
                 "data": {"id": cid}
                 })) # pyright: ignore[reportArgumentType]
 
-               
-
         # 난이도 조정 체크
         if block.index % self.adjustment_interval == 0 and block.index > 0:
             self.adjust_difficulty()
+
+        # P2P: 네트워크 상태 브로드캐스트
+        asyncio.create_task(manager.broadcast({
+            "type": MESSAGE_TYPE["NETWORK_STATUS"],
+            "data": get_network_status(self, list(peers))
+        })) # pyright: ignore[reportArgumentType]
 
     
 
@@ -89,6 +95,12 @@ class Blockchain:
 
     def add_transaction(self, transaction: dict):
         self.pending_transactions.append(transaction)
+
+        # P2P: 네트워크 상태 브로드캐스트
+        asyncio.create_task(manager.broadcast({
+            "type": MESSAGE_TYPE["NETWORK_STATUS"],
+            "data": get_network_status(self, list(peers))
+        })) # pyright: ignore[reportArgumentType]
 
     def get_balance(self, address:str) -> float:
         balance = 0.0

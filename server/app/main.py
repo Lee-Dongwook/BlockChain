@@ -69,6 +69,10 @@ async def websocket_endpoint(websocket: WebSocket):
                     contracts[contract_id].execute(blockchain)
         
                 print(f"[P2P] Contract {contract_id} executed from peer")
+
+            elif msg_type == MESSAGE_TYPE["NETWORK_STATUS"]:
+                status = data.get('data')
+                print(f"[P2P] Network status update: ${status}")
                 
 
             await manager.broadcast(data)
