@@ -8,6 +8,8 @@ from fastapi import FastAPI, WebSocket
 from api.routes import blockchain, router
 from api.wallet_routes import wallet_router
 from api.p2p_routes import p2p_router
+from api.explorer_routes import explorer_router
+from api.stats_routes import stats_router
 from p2p.manager import manager
 from p2p.messages import MESSAGE_TYPE
 
@@ -15,8 +17,10 @@ app = FastAPI(title="Blockchain API")
 
 # REST API
 app.include_router(router)
-app.include_router(wallet_router)
-app.include_router(p2p_router)
+app.include_router(wallet_router, prefix='/wallet')
+app.include_router(p2p_router, prefix='/p2p')
+app.include_router(explorer_router, prefix='/explorer')
+app.include_router(stats_router, prefix='/stats')    
 
 # WebSocket
 @app.websocket("/ws")
