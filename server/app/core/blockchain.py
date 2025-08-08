@@ -5,6 +5,7 @@ from api.p2p_routes import peers
 from p2p.messages import MESSAGE_TYPE
 from p2p.manager import manager
 from utils.network_status import get_network_status
+from utils.event_logger import add_event_log
 import time
 import statistics
 import asyncio
@@ -34,6 +35,14 @@ class Blockchain:
         # 블록체인에 추가
         self.chain.append(block)
 
+        # 이벤트 로그
+        add_event_log("BLOCK_MINED", {
+            "miner": miner_address,
+            "block_index": block.index,
+            "hash": block.hash,
+            "difficulty": self.difficulty
+        })
+
         end_time = time.time()
         print(f"[INFO] Block {block.index} mined in {round(end_time - start_time,2)}s (difficulty={self.difficulty})")
 
@@ -50,6 +59,11 @@ class Blockchain:
         for cid, contract in contracts.items():
             if contract.should_execute(self):
                 contract.execute(self)
+
+                add_event_log("CONTRACT_EXECUTED", {
+                "contract_id": cid,
+                "block_index": block.index
+                })
                 
                 asyncio.create_task(manager.broadcast({
                 "type": MESSAGE_TYPE["CONTRACT_EXECUTE"],
@@ -95,6 +109,7 @@ class Blockchain:
 
     def add_transaction(self, transaction: dict):
         self.pending_transactions.append(transaction)
+        add_event_log("TRANSACTION_ADDED", transaction)
 
         # P2P: 네트워크 상태 브로드캐스트
         asyncio.create_task(manager.broadcast({

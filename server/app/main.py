@@ -5,20 +5,55 @@ import os
 sys.path.append(os.path.dirname(__file__))
 
 from fastapi import FastAPI, WebSocket
+import asyncio
+from contextlib import asynccontextmanager
+
 from api.routes import blockchain, router
 from api.wallet_routes import wallet_router
-from api.p2p_routes import p2p_router
+from api.p2p_routes import p2p_router, peers
 from api.explorer_routes import explorer_router
 from api.stats_routes import stats_router
 from api.multisig_routes import multisig_router
 from api.contract_routes import contract_router, contracts
 from api.network_routes import network_router
+
 from p2p.manager import manager
 from p2p.messages import MESSAGE_TYPE
+
+from utils.network_overview import build_network_overview
+from utils.event_logger import get_event_logs
+
 from core.block import Block
+from core.blockchain import Blockchain
 from core.contract import SmartContract
 
-app = FastAPI(title="Blockchain API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 서버 시작 시
+    async def broadcast_loop():
+        while True:
+            overview = build_network_overview(LOCAL_NODE_URL, peers, blockchain)
+            await manager.broadcast({
+                "type": MESSAGE_TYPE["NETWORK_OVERVIEW"],
+                "data": overview
+            }) # pyright: ignore[reportArgumentType]
+
+            await manager.broadcast({
+                "type": MESSAGE_TYPE["NETWORK_LOGS"],
+                "data": get_event_logs()
+            }) # pyright: ignore[reportArgumentType]
+
+            await asyncio.sleep(5)
+        
+    task = asyncio.create_task(broadcast_loop())
+    yield
+
+    task.cancel()
+
+
+app = FastAPI(title="Blockchain API", lifespan=lifespan)
+blockchain = Blockchain()
+LOCAL_NODE_URL = "ws://localhost:8000/ws"
 
 # REST API
 app.include_router(router)
@@ -29,6 +64,8 @@ app.include_router(stats_router, prefix='/stats')
 app.include_router(multisig_router, prefix='/multisig')
 app.include_router(contract_router, prefix='/contract')
 app.include_router(network_router, prefix="/network")
+
+
 
 # WebSocket
 @app.websocket("/ws")
@@ -75,8 +112,14 @@ async def websocket_endpoint(websocket: WebSocket):
             elif msg_type == MESSAGE_TYPE["NETWORK_STATUS"]:
                 status = data.get('data')
                 print(f"[P2P] Network status update: ${status}")
+            
+            elif msg_type == MESSAGE_TYPE["NETWORK_OVERVIEW"]:
+                data_obj = data.get("data")
+                print(f"[P2P] Live Network Overview: {data_obj['stats']}")
                 
 
             await manager.broadcast(data)
     except:
         await manager.disconnect(websocket)
+
+

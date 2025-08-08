@@ -1,8 +1,10 @@
 from fastapi import APIRouter
+from utils.network_overview import build_network_overview
 from utils.network_graph import build_network_graph
+from utils.event_logger import get_event_logs
 from api.p2p_routes import peers
 from core.blockchain import Blockchain
-from utils.network_overview import build_network_overview
+
 
 network_router = APIRouter()
 blockchain = Blockchain()
@@ -15,3 +17,7 @@ def network_graph():
 @network_router.get('/network/overview')
 def network_overview():
     return build_network_overview(LOCAL_NODE_URL, peers, blockchain)
+
+@network_router.get("/network/logs")
+def network_logs():
+    return get_event_logs()
