@@ -6,12 +6,14 @@ sys.path.append(os.path.dirname(__file__))
 
 from fastapi import FastAPI, WebSocket
 from api.routes import router
+from api.wallet_routes import wallet_router
 from p2p.manager import manager
 
 app = FastAPI(title="Blockchain API")
 
 # REST API
 app.include_router(router)
+app.include_router(wallet_router)
 
 # WebSocket
 @app.websocket("/ws")
