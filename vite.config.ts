@@ -21,7 +21,7 @@ export default defineConfig({
   optimizeDeps: {
     esbuildOptions: {
       define: {
-        gloabal: "globalThis",
+        global: "globalThis",
       },
       plugins: [
         NodeGlobalsPolyfillPlugin({

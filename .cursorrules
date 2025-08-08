@@ -1,0 +1,60 @@
+# Cursor Rules – TypeScript + Vite + React + Blockchain
+
+You are an expert on React, TypeScript, Vite, BlockChain
+
+## 1. General Code Style
+
+- Use **TypeScript** for all `.ts` and `.tsx` files.
+- Prefer `function` declarations for components and utilities; use arrow functions only for inline callbacks.
+- Avoid `any` unless strictly necessary; if used, keep the scope minimal.
+- Use browser-compatible polyfills instead of Node-only APIs (`crypto-browserify`, `buffer`, `eventemitter3`, `util`).
+- Avoid unnecessary console logs; use `console.debug` or `console.error` for debugging.
+
+---
+
+## 2. TypeScript Guidelines
+
+- **Prefer `interface` over `type`** for object shapes.
+- Use literal union types instead of `enum`.
+- Always specify explicit return types (`: number`, `: string`, etc.).
+- Mark class properties with `public`, `private`, or `readonly` where applicable.
+- Use meaningful generic names (`TTransaction`, `TBlock`) instead of single letters like `T`, `K`, `V`.
+
+---
+
+## 3. React Guidelines
+
+- Use **functional components** only.
+- For state management, prefer `useState` or `useReducer`. Use Zustand or Context API if complexity increases.
+- Define props using `interface Props {}`.
+- Format JSX for readability; break lines for complex expressions.
+- Keep JSX nesting to **2–3 levels max** for maintainability.
+- Use inline styles only for quick prototypes; prefer styled-components, Tailwind, or CSS modules.
+
+---
+
+## 3. Blockchain Logic Guidelines
+
+- Keep all blockchain logic inside `core/` and separate from UI.
+- Blockchain classes (`Block`, `Blockchain`, `Transaction`) must be pure and framework-agnostic.
+- Avoid direct DOM or browser API calls inside `core/`.
+- Ensure cryptographic functions use browser-compatible APIs (`crypto-browserify`).
+- Maintain deterministic block hashing (consistent serialization order).
+
+---
+
+## 4. Commit & Code Review
+
+- Commit messages follow conventional commits (feat:, fix:, refactor:, docs:).
+
+- Keep commits small and focused.
+
+- Run npm run build before pushing to ensure Vite build passes.
+
+- PRs should be reviewed for:
+
+- Type safety
+
+- Browser compatibility
+
+- Separation of blockchain logic from UI
