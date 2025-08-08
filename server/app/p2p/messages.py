@@ -1,0 +1,5 @@
+MESSAGE_TYPE = {
+    "CHAIN": "CHAIN",
+    "TRANSACTION": "TRANSACTION",
+    "BLOCK": "BLOCK"
+}
