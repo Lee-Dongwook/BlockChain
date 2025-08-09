@@ -7,7 +7,7 @@ from p2p.manager import manager
 from utils.network_status import get_network_status
 from utils.event_logger import add_event_log
 from utils.redis_client import r, CHAIN_KEY, PENDING_KEY, BALANCE_KEY_PREFIX
-from utils.crypto import sha256
+from utils.crypto import sha256, verify_signature
 import time
 import statistics
 import asyncio
@@ -24,8 +24,10 @@ class Blockchain:
         self.chain = self.load_chain_from_cache() or [self.create_genesis_block()]
         self.target_block_time = 10 # 목표 블록 생성 시간 (10초)
         self.adjustment_interval = 5 # 난이도 조정 주기 (블록 개수)
+        self.lock = threading.Lock()
         self._start_tx_cleanup_scheduler() # 트랜잭션 만료 자동 청소 스케줄러
-    
+
+    # ------------------- Utility -------------------
     def _start_tx_cleanup_scheduler(self):
         def _cleanup_loop():
             while True:
@@ -42,11 +44,7 @@ class Blockchain:
         """주소 잔액을 Redis에서 바로 갱신, 음수 delta는 잔액 차감, 양수 delta는 잔액 증가"""
         key = f"{BALANCE_KEY_PREFIX}{address}"
         current = r.get(key)
-        if current is None:
-            # 캐시가 없으면 전체 블록체인 스캔 후 저장
-            balance = self.get_balance(address) + amount_delta
-        else:
-            balance = float(current) + amount_delta # pyright: ignore[reportArgumentType]
+        balance = float(current) + amount_delta if current else self.get_balance(address) + amount_delta # pyright: ignore[reportArgumentType]
         r.set(key, balance)
 
     def save_chain_to_cache(self):
@@ -60,7 +58,6 @@ class Blockchain:
         if data:
             raw_blocks = json.loads(data) # pyright: ignore[reportArgumentType]
             return [Block(**blk) for blk in raw_blocks] 
-        
         return None
     
     def load_pending_from_cache(self):
@@ -73,82 +70,83 @@ class Blockchain:
     def get_latest_block(self) -> Block:
         return self.chain[-1]
 
+    # ------------------- Mining -------------------
     def mining_pending_transactions(self, miner_address:str):
         # 채굴 전에 만료된 트랜잭션 제거
         self._prune_expired_transactions()
-
         start_time = time.time()
 
+        with self.lock:
         # 새 블록 생성
-        block = Block(len(self.chain), self.get_latest_block().hash, self.pending_transactions, self.difficulty)
+            block = Block(len(self.chain), self.get_latest_block().hash, self.pending_transactions, self.difficulty)
         # PoW 수행       
-        self.proof_of_work(block)
+            self.proof_of_work(block)
         # 블록체인에 추가
-        self.chain.append(block)
+            self.chain.append(block)
         # Redis 체인 저장
-        self.save_chain_to_cache()
+            self.save_chain_to_cache()
 
         # 총 수수료 계산
-        total_fees = sum(tx.get("fee",0) for tx in block.transactions)
-
+            total_fees = sum(tx.get("fee",0) for tx in block.transactions)
         # 채굴 보상 + 수수료
-        reward_tx = {
-           "from_address": "System",
-           "to_address": miner_address,
-           "amount": self.mining_reward + total_fees  
-        }
-
+            reward_tx = {
+                "from_address": "System",
+                "to_address": miner_address,
+                "amount": self.mining_reward + total_fees,
+                "timestamp": time.time(),
+                "tx_id": sha256(f"reward-{miner_address}-{time.time()}")
+            }
         # 채굴 보상 트랜잭션 지급
-        self.pending_transactions = [reward_tx]
+            self.pending_transactions = [reward_tx]
 
         # 채굴 보상 잔액 캐시 반영
-        self._update_balance_cache(miner_address, reward_tx['amount'])
+            self._update_balance_cache(miner_address, reward_tx['amount'])
 
         # Redis 팬딩 저장
-        self.save_pending_to_cache()
+            self.save_pending_to_cache()
 
         # 이벤트 로그
-        add_event_log("BLOCK_MINED", {
-            "miner": miner_address,
-            "block_index": block.index,
-            "hash": block.hash,
-            "difficulty": self.difficulty,
-            "fees": total_fees
-        })
+            add_event_log("BLOCK_MINED", {
+                "miner": miner_address,
+                "block_index": block.index,
+                "hash": block.hash,
+                "difficulty": self.difficulty,
+                "fees": total_fees
+            })
 
-        end_time = time.time()
-        print(f"[INFO] Block {block.index} mined in {round(end_time - start_time,2)}s (difficulty={self.difficulty} fees={total_fees})")
+            end_time = time.time()
+            print(f"[INFO] Block {block.index} mined in {round(end_time - start_time,2)}s (difficulty={self.difficulty} fees={total_fees})")
 
         # P2P: 새 블록 브로드캐스트
-        asyncio.create_task(manager.broadcast({
-            "type": MESSAGE_TYPE["BLOCK"],
-            "data": block.__dict__
-        })) # pyright: ignore[reportArgumentType]
+            asyncio.create_task(manager.broadcast({
+                "type": MESSAGE_TYPE["BLOCK"],
+                "data": block.__dict__
+            })) # pyright: ignore[reportArgumentType]
 
         # 스마트 컨트랙트 자동 실행 + P2P 브로드캐스트
-        for cid, contract in contracts.items():
-            if contract.should_execute(self):
-                contract.execute(self)
+            for cid, contract in contracts.items():
+                if contract.should_execute(self):
+                    contract.execute(self)
 
-                add_event_log("CONTRACT_EXECUTED", {
-                "contract_id": cid,
-                "block_index": block.index
-                })
+                    add_event_log("CONTRACT_EXECUTED", {
+                        "contract_id": cid,
+                        "block_index": block.index
+                    })
                 
-                asyncio.create_task(manager.broadcast({
-                "type": MESSAGE_TYPE["CONTRACT_EXECUTE"],
-                "data": {"id": cid}
-                })) # pyright: ignore[reportArgumentType]
+                    asyncio.create_task(manager.broadcast({
+                        "type": MESSAGE_TYPE["CONTRACT_EXECUTE"],
+                        "data": {"id": cid}
+                    })) # pyright: ignore[reportArgumentType]
 
         # 난이도 조정 체크
-        if block.index % self.adjustment_interval == 0 and block.index > 0:
-            self.adjust_difficulty()
+            if block.index % self.adjustment_interval == 0 and block.index > 0:
+                self.adjust_difficulty()
 
         # P2P: 네트워크 상태 브로드캐스트
-        asyncio.create_task(manager.broadcast({
-            "type": MESSAGE_TYPE["NETWORK_STATUS"],
-            "data": get_network_status(self, list(peers))
-        })) # pyright: ignore[reportArgumentType]
+            asyncio.create_task(manager.broadcast({
+                "type": MESSAGE_TYPE["NETWORK_STATUS"],
+                "data": get_network_status(self, list(peers))
+            })) # pyright: ignore[reportArgumentType]
 
     
 
@@ -161,11 +159,7 @@ class Blockchain:
         if len(self.chain) <= self.adjustment_interval:
             return
 
-        times = []
-        for i in range(-self.adjustment_interval + 1, 0):
-            t = self.chain[i].timestamp - self.chain[i - 1].timestamp
-            times.append(t)
-        
+        times = [(self.chain[i].timestamp - self.chain[i - 1].timestamp) for i in range(-self.adjustment_interval + 1, 0)]
         avg_time = statistics.mean(times)
 
         if avg_time < self.target_block_time:
@@ -193,32 +187,44 @@ class Blockchain:
         else:
             tx_data = transaction
 
+        # 필수 필드 체크
+        required_fields = ["from_address", "to_address", "amount"]
+        for f in required_fields:
+            if f not in tx_data:
+                raise ValueError(f"Missing field: {f}")
+        if not isinstance(tx_data["amount"], (int, float)) or tx_data["amount"] <= 0:
+            raise ValueError("Invalid amount")
+
+        # 서명 검증 (System 제외)
+        if tx_data["from_address"] != "System" and "signature" in tx_data and "public_key" in tx_data:
+            if not verify_signature(tx_data["public_key"], tx_data["signature"], json.dumps(tx_data, sort_keys=True)):
+                raise ValueError('Invalid signature')
+
         # 수수료 필드 기본 값
         tx_data.setdefault("fee", 0.0)
         tx_data['timestamp'] = time.time()
         tx_data['tx_id'] = sha256(json.dumps(tx_data, sort_keys=True))
         if any(p.get("tx_id") == tx_data["tx_id"] for p in self.pending_transactions):
             raise ValueError("Duplicate transaction")
-
+        
         # 잔액 검증 (amount + fee)
-        sender_balance = self.get_balance(tx_data["from_address"])
-        total_required = tx_data["amount"] + tx_data["fee"]
-        if sender_balance < total_required:
+        if self.get_balance(tx_data["from_address"]) < tx_data["amount"] + tx_data["fee"] and tx_data["from_address"] != "System":
             raise ValueError("Insufficient balance for amount + fee")
         
-        # 트랜잭션 대기열 추가
-        self.pending_transactions.append(tx_data)
-        self.pending_transactions.sort(key=lambda t: t.get('fee',0), reverse=True)
-        self.save_pending_to_cache()
+
+        with self.lock:
+            # 트랜잭션 대기열 추가
+            self.pending_transactions.append(tx_data)
+            self.pending_transactions.sort(key=lambda t: t.get('fee', 0), reverse=True)
+            self.save_pending_to_cache()
 
         # 이벤트 로그
         add_event_log("TRANSACTION_ADDED", tx_data)
 
         # 잔액 캐시 즉시 반영 (보낸 사람/받는 사람)
-        if "from_address" in tx_data and tx_data["from_address"] != "System":
+        if tx_data["from_address"] != "System":
             self._update_balance_cache(tx_data["from_address"], -(tx_data["amount"] + tx_data["fee"]))
-        if "to_address" in tx_data:
-            self._update_balance_cache(tx_data["to_address"], tx_data["amount"])
+        self._update_balance_cache(tx_data["to_address"], tx_data["amount"])
 
         # P2P: 네트워크 상태 브로드캐스트
         asyncio.create_task(manager.broadcast({
@@ -233,10 +239,42 @@ class Blockchain:
     
     def _prune_expired_transactions(self):
         now = time.time()
-        before_count = len(self.pending_transactions)
-        self.pending_transactions = [
-            tx for tx in self.pending_transactions
-            if now - tx["timestamp"] <= TX_EXPIRATION
-        ]
-        if len(self.pending_transactions) != before_count:
-            self.save_pending_to_cache()
+        with self.lock:
+            before_count = len(self.pending_transactions)
+            self.pending_transactions = [
+                tx for tx in self.pending_transactions
+                if now - tx["timestamp"] <= TX_EXPIRATION
+            ]
+            if len(self.pending_transactions) != before_count:
+                self.save_pending_to_cache()
+
+    # ------------------- Validation -------------------
+    def validate_transaction(self, tx:dict) -> bool:
+        if tx.get('amount',0) <= 0:
+            return False
+        if tx.get('from_address') != 'System':
+            if self.get_balance(tx["from_address"]) < tx["amount"] + tx.get('fee',0):
+                return False
+            if "signature" in tx and "public_key" in tx:
+                if not verify_signature(tx["public_key"], tx["signature"], json.dumps(tx, sort_keys=True)):
+                    return False
+        return True
+    
+    def validate_block(self, block:Block) -> bool:
+        if block.hash != block.calculate_hash():
+            return False
+        if block.index > 0 and block.previous_hash != self.chain[block.index - 1].hash:
+            return False
+        for tx in block.transactions:
+            if not self.validate_transaction(tx):
+                return False
+
+        return True
+    
+    def is_chain_valid(self) -> bool:
+        for i in range(1, len(self.chain)):
+            if not self.validate_block(self.chain[i]):
+                return False
+            if self.chain[i].difficulty != self.difficulty:  # 난이도 일관성
+                pass  # 필요 시 추가 로직
+        return True
