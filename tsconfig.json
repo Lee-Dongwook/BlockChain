@@ -2,16 +2,24 @@
   "compilerOptions": {
     "strict": true,
     "strictNullChecks": true,
-    "module": "nodenext",
+    "module": "ESNext",
+    "target": "ESNext",
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
-    "moduleResolution": "nodenext",
+    "moduleResolution": "node",
     "forceConsistentCasingInFileNames": true,
     "downlevelIteration": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "jsx": "react-jsx",
-    "types": ["node", "react"]
+    "types": ["node", "react", "vite/client"]
   },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "types/**/*.d.ts"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.d.ts",
+    "types/**/*.d.ts",
+    "src/vite-env.d.ts",
+    "src"
+  ]
 }
