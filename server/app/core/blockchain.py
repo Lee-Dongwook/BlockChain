@@ -232,6 +232,38 @@ class Blockchain:
             "data": get_network_status(self, list(peers))
         })) # pyright: ignore[reportArgumentType]
 
+    def add_block_from_peer(self, block_data:dict) -> bool:
+        new_block = Block(**block_data)
+        
+        # 1. 기본 유효성 검증
+        if not self.validate_block(new_block):
+            print(f"[WARN] Invalid block {new_block.index} from peer")
+            return False
+        
+        # 2. 인덱스 순서 및 연결성 체크
+        latest_block = self.get_latest_block()
+        if new_block.index != latest_block.index + 1:
+            print(f"[WARN] Block index mismatch from peer: got {new_block.index}, expected {latest_block.index + 1}")
+            return False
+
+        if new_block.previous_hash != latest_block.hash:
+            print(f"[WARN] Previous hash mismatch for block {new_block.index}")
+            return False
+        
+
+        # 3. PoW 난이도 체크
+        if new_block.hash[:self.difficulty] != "0" * self.difficulty:
+            print(f"[WARN] Invalid proof-of-work for block {new_block.index}")
+            return False
+        
+        # 4. 블록 추가 & 캐시 저장
+        self.chain.append(new_block)
+        self.save_chain_to_cache()
+        print(f"[INFO] Accepted new block {new_block.index} from peer")
+        return True
+
+
+
     def get_balance(self, address:str) -> float:
         """Redis 캐시에서 잔액 조회"""
         key = f"{BALANCE_KEY_PREFIX}{address}"
@@ -249,15 +281,15 @@ class Blockchain:
                 self.save_pending_to_cache()
 
     # ------------------- Validation -------------------
-    def validate_transaction(self, tx:dict) -> bool:
-        if tx.get('amount',0) <= 0:
+    def validate_transaction(self, tx: dict) -> bool:
+        if tx.get('amount', 0) <= 0:
             return False
         if tx.get('from_address') != 'System':
-            if self.get_balance(tx["from_address"]) < tx["amount"] + tx.get('fee',0):
+            if self.get_balance(tx["from_address"]) < tx["amount"] + tx.get('fee', 0):
                 return False
-            if "signature" in tx and "public_key" in tx:
-                if not verify_signature(tx["public_key"], tx["signature"], json.dumps(tx, sort_keys=True)):
-                    return False
+        # 서명 검증 추가
+        if not verify_signature(tx["from_address"], tx["signature"], tx["message"]):
+            return False
         return True
     
     def validate_block(self, block:Block) -> bool:

@@ -16,12 +16,13 @@ async def handle_transaction(data, blockchain:Blockchain):
 
 async def handle_block(data, blockchain:Blockchain):
     block_data = data.get('data')
-    latest_block = blockchain.get_latest_block()
-    if block_data['index'] > latest_block.index:
-        print(f"[P2P] Received new block {block_data['index']} from peer, replacing chain")
-        blockchain.chain.append(Block(**block_data))
+    if blockchain.add_block_from_peer(block_data):
+        print(f"[P2P] Accepted new block {block_data['index']} from peer")
+    else:
+        print(f"[P2P] Rejected block {block_data.get('index')}")
+   
 
-async def handle_contract_deploy(data, blockchain:Blockchain):
+async def handle_contract_deploy(data):
     data_obj = data.get('data')
     if data_obj["id"] not in contracts:
         new_contract = SmartContract(
